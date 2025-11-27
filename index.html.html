@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1-30 数字转盘</title>
+    <style>
+        /* 页面布局 */
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        /* 转盘容器 */
+        .wheel-wrapper {
+            position: relative;
+            width: 360px; /* 转盘尺寸略微加大以容纳30个数字 */
+            height: 360px;
+            margin: 20px 0;
+        }
+
+        /* 指针 (固定不动) */
+        .pointer {
+            position: absolute;
+            top: -20px; /* 向上突出 */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 35px solid #ff4757; /* 红色醒目指针 */
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+        }
+
+        /* 转盘主体 */
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.1s linear; 
+            border: 8px solid #fff;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+        }
+
+        /* 数字样式 */
+        .number-box {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform-origin: 50% 180px; /* 旋转中心点：水平居中，垂直向下对应半径长度(360/2=180) */
+            width: 30px; /* 限制宽度 */
+            height: 180px; /* 高度等于半径 */
+            margin-left: -15px; /* 居中校正 (width/2) */
+            text-align: center;
+            padding-top: 10px; /* 数字距离边缘的距离 */
+            color: white;
+            font-weight: bold;
+            font-size: 14px; /* 30个数字较挤，字体稍微调小 */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+            /* 即使在旋转时，文字也保持良好的渲染 */
+            -webkit-font-smoothing: antialiased; 
+        }
+
+        /* 控制区 */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            padding: 12px 35px;
+            font-size: 18px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #startBtn { background-color: #2ecc71; }
+        #startBtn:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+
+        #stopBtn { background-color: #e74c3c; }
+        #stopBtn:disabled { background-color: #fadbd8; cursor: not-allowed; }
+
+        /* 结果展示 */
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>1-30 幸运数字转盘</h2>
+
+    <div class="wheel-wrapper">
+        <div class="pointer"></div>
+        <div class="wheel" id="wheel">
+            </div>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn">开始</button>
+        <button id="stopBtn" disabled>停止</button>
+    </div>
+
+    <div id="result">等待开始...</div>
+
+    <script>
+        // 配置参数
+        const totalNumbers = 30;
+        const radius = 180; // 与CSS中的高度一致
+        const wheel = document.getElementById('wheel');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resultDiv = document.getElementById('result');
+
+        // === 1. 初始化转盘 (生成颜色和数字) ===
+        
+        let gradientParts = []; // 用于构建 conic-gradient 背景字符串
+        const sliceAngle = 360 / totalNumbers; // 每个扇区的角度 (12度)
+
+        for (let i = 1; i <= totalNumbers; i++) {
+            // 1. 生成颜色 (使用 HSL 颜色空间生成彩虹色)
+            // H: 色相 0-360均匀分布, S: 75% 饱和度, L: 55% 亮度
+            const hue = (i - 1) * (360 / totalNumbers); 
+            const color = `hsl(${hue}, 75%, 55%)`;
+            
+            // 构建渐变字符串部分: color startDeg endDeg
+            const startDeg = (i - 1) * sliceAngle;
+            const endDeg = i * sliceAngle;
+            gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
+
+            // 2. 创建数字元素
+            const numDiv = document.createElement('div');
+            numDiv.className = 'number-box';
+            numDiv.innerText = i;
+            
+            // 计算数字旋转角度
+            // 我们希望数字位于扇区的正中间
+            // 比如数字1 (0-12度)，中心是6度
+            const midAngle = startDeg + (sliceAngle / 2);
+            
+            numDiv.style.transform = `rotate(${midAngle}deg)`;
+            wheel.appendChild(numDiv);
+        }
+
+        // 应用背景色
+        wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+
+        
+        // === 2. 旋转逻辑 ===
+        
+        let currentRotation = 0;
+        let isSpinning = false;
+        let animationId = null;
+        const spinSpeed = 25; // 旋转速度
+
+        // 开始按钮
+        startBtn.addEventListener('click', () => {
+            if (isSpinning) return;
+            
+            isSpinning = true;
+            resultDiv.innerText = "旋转中...";
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            
+            rotateLoop();
+        });
+
+        // 停止按钮
+        stopBtn.addEventListener('click', () => {
+            if (!isSpinning) return;
+            
+            isSpinning = false;
+            cancelAnimationFrame(animationId); // 停止动画
+            
+            calculateResult(); // 计算结果
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        });
+
+        // 动画循环
+        function rotateLoop() {
+            if (isSpinning) {
+                currentRotation += spinSpeed;
+                // 保持数值在合理范围，防止数值溢出
+                if (currentRotation >= 360) {
+                    currentRotation -= 360;
+                }
+                wheel.style.transform = `rotate(${currentRotation}deg)`;
+                animationId = requestAnimationFrame(rotateLoop);
+            }
+        }
+
+        // === 3. 结果计算 ===
+        function calculateResult() {
+            // 1. 获取当前转盘相对于0度的旋转角度 (0-360)
+            // 指针在顶部 (0度位置)
+            let actualDeg = currentRotation % 360;
+            
+            // 2. 计算指针指向的角度
+            // 转盘顺时针转，相当于指针逆时针扫过转盘
+            let pointerAngle = (360 - actualDeg) % 360;
+            
+            // 3. 计算落在第几个扇区
+            // Math.floor(角度 / 12度)
+            // 注意：数组索引从0开始 (对应数字1)，所以结果要 +1
+            let index = Math.floor(pointerAngle / sliceAngle);
+            
+            // 我们的生成逻辑是：0-12度是数字1 (index 0)，12-24度是数字2 (index 1)...
+            let finalNumber = index + 1;
+
+            resultDiv.innerText = `🎉 结果是：${finalNumber}`;
+            resultDiv.style.color = '#e74c3c'; // 结果变红突出显示
+        }
+
+    </script>
+</body>
+</html>
